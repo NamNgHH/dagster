@@ -6,6 +6,7 @@ import csv from './kindtag-images/csv.svg';
 import dag from './kindtag-images/dag.svg';
 import dashboard from './kindtag-images/dashboard.svg';
 import file from './kindtag-images/file.svg';
+import json from './kindtag-images/json.svg';
 import medallion_bronze from './kindtag-images/medallion-bronze-color.svg';
 import medallion_gold from './kindtag-images/medallion-gold-color.svg';
 import medallion_silver from './kindtag-images/medallion-silver-color.svg';
@@ -16,6 +17,7 @@ import sigma from './kindtag-images/sigma.svg';
 import source from './kindtag-images/source.svg';
 import table from './kindtag-images/table.svg';
 import task from './kindtag-images/task.svg';
+import toml from './kindtag-images/toml.svg';
 import airbyte from './kindtag-images/tool-airbyte-color.svg';
 import airflow from './kindtag-images/tool-airflow-color.svg';
 import airtable from './kindtag-images/tool-airtable-color.svg';
@@ -176,6 +178,7 @@ import stitch from './kindtag-images/tool-stitch-color.svg';
 import stripe from './kindtag-images/tool-stripe-color.svg';
 import superset from './kindtag-images/tool-superset-color.svg';
 import tableau from './kindtag-images/tool-tableau-color.svg';
+import talend from './kindtag-images/tool-talend-color.svg';
 import teams from './kindtag-images/tool-teams-color.svg';
 import tecton from './kindtag-images/tool-tecton-color.svg';
 import tensorflow from './kindtag-images/tool-tensorflow-color.svg';
@@ -217,6 +220,8 @@ type KnownTag = {
 };
 
 export type KnownTagType =
+  | 'json'
+  | 'toml'
   | 'jupyter'
   | 'ipynb'
   | 'noteable'
@@ -228,6 +233,7 @@ export type KnownTagType =
   | 'fivetran'
   | 'db2'
   | 'dbt'
+  | 'dbtcloud'
   | 'slack'
   | 'pytorch'
   | 'pyspark'
@@ -374,6 +380,7 @@ export type KnownTagType =
   | 'awsstepfunction'
   | 'stepfunction'
   | 'thoughtspot'
+  | 'talend'
   | 'tiktok'
   | 'trino'
   | 'twilio'
@@ -434,6 +441,14 @@ export type KnownTagType =
   | 'spanner';
 
 export const KNOWN_TAGS: Record<KnownTagType, KnownTag> = {
+  json: {
+    icon: json,
+    content: 'json',
+  },
+  toml: {
+    icon: toml,
+    content: 'toml',
+  },
   jupyter: {
     icon: jupyter,
     content: 'jupyter',
@@ -477,6 +492,10 @@ export const KNOWN_TAGS: Record<KnownTagType, KnownTag> = {
   dbt: {
     icon: dbt,
     content: 'dbt',
+  },
+  dbtcloud: {
+    icon: dbt,
+    content: 'dbt Cloud',
   },
   slack: {
     icon: slack,
@@ -599,6 +618,10 @@ export const KNOWN_TAGS: Record<KnownTagType, KnownTag> = {
   teams: {
     icon: teams,
     content: 'Teams',
+  },
+  talend: {
+    icon: talend,
+    content: 'Talend',
   },
   mlflow: {
     icon: mlflow,

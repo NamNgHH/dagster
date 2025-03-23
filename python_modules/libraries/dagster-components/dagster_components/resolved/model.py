@@ -108,7 +108,9 @@ class _ModelResolver(Generic[T], ABC):
     def resolve_from_model(self, context: "ResolutionContext", model: ResolvableModel) -> T: ...
 
     def from_seq(self, context: "ResolutionContext", model: Sequence[TModel]) -> Sequence[T]:
-        return [self.resolve_from_model(context, item) for item in model]
+        return [
+            self.resolve_from_model(context.at_path(idx), item) for idx, item in enumerate(model)
+        ]
 
     def from_optional(self, context: "ResolutionContext", model: Optional[TModel]) -> Optional[T]:
         return self.resolve_from_model(context, model) if model else None
@@ -165,22 +167,33 @@ class _AutoResolve:
 class _ExpectedInjection: ...
 
 
-def _is_scalar(annotation):
+def _safe_is_subclass(obj, cls: type) -> bool:
+    return (
+        isinstance(obj, type)
+        and not isinstance(obj, GenericAlias)  # prevent exceptions on 3.9
+        and issubclass(obj, cls)
+    )
+
+
+def _is_implicitly_resolved_type(annotation):
     if annotation in (int, float, str, bool, Any, type(None)):
+        return True
+
+    if _safe_is_subclass(annotation, ResolvableModel):
         return True
 
     origin = get_origin(annotation)
     args = get_args(annotation)
 
     if origin in (Union, UnionType, list, Sequence, tuple, dict, Mapping) and all(
-        _is_scalar(arg) for arg in args
+        _is_implicitly_resolved_type(arg) for arg in args
     ):
         return True
 
     if origin is Annotated and any(isinstance(arg, _ExpectedInjection) for arg in args):
         return True
 
-    if origin is Literal and all(_is_scalar(type(arg)) for arg in args):
+    if origin is Literal and all(_is_implicitly_resolved_type(type(arg)) for arg in args):
         return True
 
     return False
@@ -190,11 +203,7 @@ def _get_resolver(
     annotation: type,
     top_level_auto_resolve: Optional[_AutoResolve],
 ) -> Optional[_ModelResolver]:
-    if (
-        top_level_auto_resolve
-        and isinstance(annotation, type)
-        and not isinstance(annotation, GenericAlias)  # prevent exceptions on 3.9
-    ):
+    if top_level_auto_resolve:
         if top_level_auto_resolve.via and annotation is get_resolved_kwargs_target_type(
             top_level_auto_resolve.via
         ):
@@ -202,7 +211,7 @@ def _get_resolver(
                 kwargs_type=top_level_auto_resolve.via,
                 target_type=annotation,
             )
-        if issubclass(annotation, ResolvedFrom):
+        if _safe_is_subclass(annotation, ResolvedFrom):
             return _DirectResolver(annotation)
 
     origin = get_origin(annotation)
@@ -218,16 +227,18 @@ def _get_resolver(
         return _KwargsResolver(kwargs_type=auto_resolve.via, target_type=args[0])
 
     resolved_from_cls = args[0]
-    if not issubclass(resolved_from_cls, ResolvedFrom):
+    if not _safe_is_subclass(resolved_from_cls, ResolvedFrom):
         check.failed("Can only annotate ResolvedFrom types with ResolveModel()")
     return _DirectResolver(resolved_from_cls)
 
 
+def _recurse(context: "ResolutionContext", field_value):
+    return context.resolve_value(field_value)
+
+
 def derive_field_resolver(annotation: Any, field_name: str) -> "Resolver":
-    if _is_scalar(annotation):
-        return Resolver.from_model(
-            lambda context, model: context.resolve_value(getattr(model, field_name))
-        )
+    if _is_implicitly_resolved_type(annotation):
+        return Resolver(_recurse)
 
     origin = get_origin(annotation)
     args = get_args(annotation)
@@ -266,8 +277,10 @@ def derive_field_resolver(annotation: Any, field_name: str) -> "Resolver":
 
     check.failed(
         f"Could not derive resolver for annotation {field_name}: {annotation}.\n"
-        "Field types are expected to either be simple serializable types such as "
-        "str, float, int, bool, list, etc or Annotated with an appropriate Resolver."
+        "Field types are expected to be:\n"
+        "* serializable types such as str, float, int, bool, list, etc\n"
+        "* ResolvableModel\n"
+        "* Annotated with an appropriate Resolver."
     )
 
 
@@ -324,7 +337,8 @@ class Resolver:
                 return self.fn.callable(context, model)
             elif isinstance(self.fn, AttrWithContextFn):
                 attr = getattr(model, field_name)
-                return self.fn.callable(context.at_path(field_name), attr)
+                context = context.at_path(field_name)
+                return self.fn.callable(context, attr)
         except ResolutionException:
             raise  # already processed
         except Exception:
@@ -365,9 +379,7 @@ def resolve_fields(
 ) -> Mapping[str, Any]:
     """Returns a mapping of field names to resolved values for those fields."""
     return {
-        field_name: resolver.execute(
-            context=context.at_path(field_name), model=model, field_name=field_name
-        )
+        field_name: resolver.execute(context=context, model=model, field_name=field_name)
         for field_name, resolver in get_annotation_field_resolvers(kwargs_cls).items()
     }
 

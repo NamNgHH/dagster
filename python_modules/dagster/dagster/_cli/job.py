@@ -6,10 +6,11 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Callable, Optional, TypeVar
 
 import click
+from dagster_shared.yaml_utils import dump_run_config_yaml
 
 import dagster._check as check
 from dagster import __version__ as dagster_version
-from dagster._check.decorator import checked
+from dagster._check import checked
 from dagster._cli.config_scaffolder import scaffold_job_config
 from dagster._cli.utils import (
     assert_no_remaining_opts,
@@ -71,7 +72,6 @@ from dagster._utils.indenting_printer import IndentingPrinter
 from dagster._utils.interrupts import capture_interrupts
 from dagster._utils.merger import merge_dicts
 from dagster._utils.tags import normalize_tags
-from dagster._utils.yaml_utils import dump_run_config_yaml
 
 T = TypeVar("T")
 

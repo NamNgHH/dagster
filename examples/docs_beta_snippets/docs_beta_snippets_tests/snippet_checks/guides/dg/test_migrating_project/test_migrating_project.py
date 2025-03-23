@@ -28,6 +28,7 @@ COMPONENTS_SNIPPETS_DIR = (
 
 MY_EXISTING_PROJECT = Path(__file__).parent / "my-existing-project"
 MASK_MY_EXISTING_PROJECT = (r"\/.*?\/my-existing-project", "/.../my-existing-project")
+MASK_ISORT = (r"#isort:skip-file", "# definitions.py")
 
 
 def test_components_docs_index(update_snippets: bool) -> None:
@@ -85,7 +86,12 @@ def test_components_docs_index(update_snippets: bool) -> None:
         )
 
         _run_command(
-            f"uv add --editable '{EDITABLE_DIR / 'dagster-components'!s}' '{DAGSTER_ROOT / 'python_modules' / 'dagster'!s}' '{DAGSTER_ROOT / 'python_modules' / 'dagster-webserver'!s}'"
+            f"uv add --editable '{DAGSTER_ROOT / 'python_modules' / 'libraries' / 'dagster-components'!s}' "
+            f"'{DAGSTER_ROOT / 'python_modules' / 'dagster'!s}' "
+            f"'{DAGSTER_ROOT / 'python_modules' / 'libraries' / 'dagster-shared'!s}' "
+            f"'{DAGSTER_ROOT / 'python_modules' / 'dagster-webserver'!s}' "
+            f"'{DAGSTER_ROOT / 'python_modules' / 'dagster-pipes'!s}' "
+            f"'{DAGSTER_ROOT / 'python_modules' / 'dagster-graphql'!s}'"
         )
         _run_command(
             "uv run dagster asset materialize --select '*' -m 'my_existing_project.definitions'"
@@ -103,6 +109,7 @@ def test_components_docs_index(update_snippets: bool) -> None:
             snippet_path=COMPONENTS_SNIPPETS_DIR
             / f"{get_next_snip_number()}-initial-definitions.py",
             update_snippets=update_snippets,
+            snippet_replace_regex=[MASK_ISORT],
         )
 
         # Update definitions.py to use components

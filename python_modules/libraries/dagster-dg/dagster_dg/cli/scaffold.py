@@ -61,7 +61,6 @@ def scaffold_group():
 def scaffold_workspace_command(
     name: str,
     use_editable_dagster: Optional[str],
-    use_editable_components_package_only: Optional[str],
     **global_options: object,
 ):
     """Initialize a new Dagster workspace.
@@ -80,7 +79,6 @@ def scaffold_workspace_command(
     workspace_config = DgRawWorkspaceConfig(
         scaffold_project_options=DgWorkspaceScaffoldProjectOptions.get_raw_from_cli(
             use_editable_dagster,
-            use_editable_components_package_only,
         )
     )
     scaffold_workspace(name, workspace_config)
@@ -113,7 +111,6 @@ def scaffold_project_command(
     skip_venv: bool,
     populate_cache: bool,
     use_editable_dagster: Optional[str],
-    use_editable_components_package_only: Optional[str],
     **global_options: object,
 ) -> None:
     """Scaffold a Dagster project file structure and a uv-managed virtual environment scoped
@@ -152,7 +149,6 @@ def scaffold_project_command(
         abs_path,
         dg_context,
         use_editable_dagster=use_editable_dagster,
-        use_editable_components_package_only=use_editable_components_package_only,
         skip_venv=skip_venv,
         populate_cache=populate_cache,
     )
@@ -323,6 +319,8 @@ def _create_component_shim_scaffold_subcommand(
         **global_options: object,
     ) -> None:
         """Scaffold of a definition."""
+        if not instance_name.endswith(".py"):
+            raise click.ClickException("Definition instance names must end with '.py'. ")
         cli_config = normalize_cli_config(global_options, cli_context)
         _core_scaffold(cli_context, cli_config, component_key, instance_name, {}, {})
 
@@ -398,9 +396,9 @@ def _create_component_scaffold_subcommand(
 # ########################
 
 SHIM_COMPONENTS = {
-    ComponentKey("dagster_components.dagster", "RawAssetComponent"): "asset",
-    ComponentKey("dagster_components.dagster", "RawSensorComponent"): "sensor",
-    ComponentKey("dagster_components.dagster", "RawScheduleComponent"): "schedule",
+    ComponentKey("dagster_components.dagster", "RawAssetComponent"): "dagster.asset",
+    ComponentKey("dagster_components.dagster", "RawSensorComponent"): "dagster.sensor",
+    ComponentKey("dagster_components.dagster", "RawScheduleComponent"): "dagster.schedule",
 }
 
 for key, command_name in SHIM_COMPONENTS.items():

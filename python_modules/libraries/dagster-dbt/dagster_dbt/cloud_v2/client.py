@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from collections.abc import Mapping, Sequence
 from typing import Any, Optional
@@ -13,7 +14,9 @@ from requests.exceptions import RequestException
 
 from dagster_dbt.cloud_v2.types import DbtCloudJobRunStatusType, DbtCloudRun
 
-LIST_JOBS_INDIVIDUAL_REQUEST_LIMIT = 100
+DAGSTER_DBT_CLOUD_LIST_JOBS_INDIVIDUAL_REQUEST_LIMIT = int(
+    os.getenv("DAGSTER_DBT_CLOUD_LIST_JOBS_INDIVIDUAL_REQUEST_LIMIT", "100")
+)
 DEFAULT_POLL_INTERVAL = 1
 DEFAULT_POLL_TIMEOUT = 60
 
@@ -115,7 +118,12 @@ class DbtCloudWorkspaceClient(DagsterModel):
         raise Failure(f"Max retries ({self.request_max_retries}) exceeded with url: {url}.")
 
     def create_job(
-        self, *, project_id: int, environment_id: int, job_name: str
+        self,
+        *,
+        project_id: int,
+        environment_id: int,
+        job_name: str,
+        description: Optional[str] = None,
     ) -> Mapping[str, Any]:
         """Creates a dbt cloud job in a dbt Cloud workspace for a given project and environment.
 
@@ -125,10 +133,14 @@ class DbtCloudWorkspaceClient(DagsterModel):
             environment_id (str): The dbt Cloud Environment ID. You can retrieve this value from the
                 URL of the given environment page the dbt Cloud UI.
             job_name (str): The name of the job to create.
+            description (Optional[str]): The description of the job to create.
+                Defaults to `A job that runs dbt models, sources, and tests.`
 
         Returns:
             Dict[str, Any]: Parsed json data from the response to this request
         """
+        if not description:
+            description = "A job that runs dbt models, sources, and tests."
         return self._make_request(
             method="post",
             endpoint="jobs",
@@ -138,7 +150,7 @@ class DbtCloudWorkspaceClient(DagsterModel):
                 "environment_id": environment_id,
                 "project_id": project_id,
                 "name": job_name,
-                "description": "A job that runs dbt models, sources, and tests.",
+                "description": description,
                 "job_type": "other",
             },
         )
@@ -168,14 +180,38 @@ class DbtCloudWorkspaceClient(DagsterModel):
                 "account_id": self.account_id,
                 "environment_id": environment_id,
                 "project_id": project_id,
-                "limit": LIST_JOBS_INDIVIDUAL_REQUEST_LIMIT,
+                "limit": DAGSTER_DBT_CLOUD_LIST_JOBS_INDIVIDUAL_REQUEST_LIMIT,
                 "offset": len(results),
             },
         ):
             results.extend(jobs)
-            if len(jobs) < LIST_JOBS_INDIVIDUAL_REQUEST_LIMIT:
+            if len(jobs) < DAGSTER_DBT_CLOUD_LIST_JOBS_INDIVIDUAL_REQUEST_LIMIT:
                 break
         return results
+
+    def get_job_details(self, job_id: int) -> Mapping[str, Any]:
+        """Retrieves the details of a given dbt Cloud job.
+
+        Returns:
+            Dict[str, Any]: Parsed json data representing the API response.
+        """
+        return self._make_request(
+            method="get",
+            endpoint=f"jobs/{job_id}",
+            base_url=self.api_v2_url,
+        )
+
+    def destroy_job(self, job_id: int) -> Mapping[str, Any]:
+        """Destroys a given dbt Cloud job.
+
+        Returns:
+            Dict[str, Any]: Parsed json data representing the API response.
+        """
+        return self._make_request(
+            method="delete",
+            endpoint=f"jobs/{job_id}",
+            base_url=self.api_v2_url,
+        )
 
     def trigger_job_run(
         self, job_id: int, steps_override: Optional[Sequence[str]] = None
@@ -187,7 +223,7 @@ class DbtCloudWorkspaceClient(DagsterModel):
                 URL of the given job in the dbt Cloud UI.
             steps_override (Optional[Sequence[str]]): A list of dbt commands
                 that overrides the dbt commands of the dbt Cloud job. If no list is passed,
-                the dbt commands of the job are not overriden.
+                the dbt commands of the job are not overridden.
 
         Returns:
             List[Dict[str, Any]]: A List of parsed json data from the response to this request.
@@ -273,3 +309,56 @@ class DbtCloudWorkspaceClient(DagsterModel):
 
     def get_run_manifest_json(self, run_id: int) -> Mapping[str, Any]:
         return self.get_run_artifact(run_id=run_id, path="manifest.json")
+
+    def get_project_details(self, project_id: int) -> Mapping[str, Any]:
+        """Retrieves the details of a given dbt Cloud Project.
+
+        Args:
+            project_id (str): The dbt Cloud Project ID. You can retrieve this value from the
+                URL of the "Explore" tab in the dbt Cloud UI.
+
+        Returns:
+            Dict[str, Any]: Parsed json data representing the API response.
+        """
+        return self._make_request(
+            method="get",
+            endpoint=f"projects/{project_id}",
+            base_url=self.api_v2_url,
+        )
+
+    def get_environment_details(self, environment_id: int) -> Mapping[str, Any]:
+        """Retrieves the details of a given dbt Cloud Environment.
+
+        Args:
+            environment_id (str): The dbt Cloud Environment ID. You can retrieve this value from the
+                URL of the given environment page the dbt Cloud UI.
+
+        Returns:
+            Dict[str, Any]: Parsed json data representing the API response.
+        """
+        return self._make_request(
+            method="get",
+            endpoint=f"environments/{environment_id}",
+            base_url=self.api_v2_url,
+        )
+
+    def get_account_details(self) -> Mapping[str, Any]:
+        """Retrieves the details of the account associated to the dbt Cloud workspace.
+
+        Returns:
+            Dict[str, Any]: Parsed json data representing the API response.
+        """
+        return self._make_request(
+            method="get",
+            endpoint="",
+            base_url=self.api_v2_url,
+        )
+
+    def verify_connection(self) -> None:
+        """Verifies the connection to the dbt Cloud REST API."""
+        try:
+            self.get_account_details()
+        except Exception as e:
+            raise Exception(
+                f"Failed to verify connection to dbt Cloud REST API with the workspace client. Exception: {e}"
+            )

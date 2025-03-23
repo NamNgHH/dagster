@@ -251,6 +251,8 @@ class SqlEventLogStorage(EventLogStorage):
         # https://github.com/dagster-io/dagster/issues/3945
 
         values = self._get_asset_entry_values(event, event_id, self.has_asset_key_index_cols())
+        if not values:
+            return
         insert_statement = AssetKeyTable.insert().values(
             asset_key=event.dagster_event.asset_key.to_string(), **values
         )
@@ -325,75 +327,6 @@ class SqlEventLogStorage(EventLogStorage):
                 )
 
         return entry_values
-
-    def supports_add_asset_event_tags(self) -> bool:
-        return self.has_table(AssetEventTagsTable.name)
-
-    def add_asset_event_tags(
-        self,
-        event_id: int,
-        event_timestamp: float,
-        asset_key: AssetKey,
-        new_tags: Mapping[str, str],
-    ) -> None:
-        check.int_param(event_id, "event_id")
-        check.float_param(event_timestamp, "event_timestamp")
-        check.inst_param(asset_key, "asset_key", AssetKey)
-        check.mapping_param(new_tags, "new_tags", key_type=str, value_type=str)
-
-        if not self.supports_add_asset_event_tags():
-            raise DagsterInvalidInvocationError(
-                "In order to add asset event tags, you must run `dagster instance migrate` to "
-                "create the AssetEventTags table."
-            )
-
-        current_tags_list = self.get_event_tags_for_asset(asset_key, filter_event_id=event_id)
-
-        asset_key_str = asset_key.to_string()
-
-        if len(current_tags_list) == 0:
-            current_tags: Mapping[str, str] = {}
-        else:
-            current_tags = current_tags_list[0]
-
-        with self.index_connection() as conn:
-            current_tags_set = set(current_tags.keys())
-            new_tags_set = set(new_tags.keys())
-
-            existing_tags = current_tags_set & new_tags_set
-            added_tags = new_tags_set.difference(existing_tags)
-
-            for tag in existing_tags:
-                conn.execute(
-                    AssetEventTagsTable.update()
-                    .where(
-                        db.and_(
-                            AssetEventTagsTable.c.event_id == event_id,
-                            AssetEventTagsTable.c.asset_key == asset_key_str,
-                            AssetEventTagsTable.c.key == tag,
-                        )
-                    )
-                    .values(value=new_tags[tag])
-                )
-
-            if added_tags:
-                conn.execute(
-                    AssetEventTagsTable.insert(),
-                    [
-                        dict(
-                            event_id=event_id,
-                            asset_key=asset_key_str,
-                            key=tag,
-                            value=new_tags[tag],
-                            # Postgres requires a datetime that is in UTC but has no timezone info
-                            # set in order to be stored correctly
-                            event_timestamp=datetime.fromtimestamp(
-                                event_timestamp, timezone.utc
-                            ).replace(tzinfo=None),
-                        )
-                        for tag in added_tags
-                    ],
-                )
 
     def store_asset_event_tags(
         self, events: Sequence[EventLogEntry], event_ids: Sequence[int]
@@ -1057,6 +990,15 @@ class SqlEventLogStorage(EventLogStorage):
             )
 
         return self._get_event_records_result(event_records_filter, limit, cursor, ascending)
+
+    def fetch_failed_materializations(
+        self,
+        records_filter: Union[AssetKey, AssetRecordsFilter],
+        limit: int,
+        cursor: Optional[str] = None,
+        ascending: bool = False,
+    ) -> EventRecordsResult:
+        return EventRecordsResult(records=[], cursor=cursor or "", has_more=False)
 
     def fetch_observations(
         self,
@@ -3036,6 +2978,30 @@ class SqlEventLogStorage(EventLogStorage):
                     ),
                 )
             ).rowcount
+
+            # TODO fix the idx_asset_check_executions_unique index so that this can be a single
+            # upsert
+            if rows_updated == 0:
+                rows_updated = conn.execute(
+                    AssetCheckExecutionsTable.insert().values(
+                        asset_key=evaluation.asset_key.to_string(),
+                        check_name=evaluation.check_name,
+                        run_id=event.run_id,
+                        execution_status=(
+                            AssetCheckExecutionRecordStatus.SUCCEEDED.value
+                            if evaluation.passed
+                            else AssetCheckExecutionRecordStatus.FAILED.value
+                        ),
+                        evaluation_event=serialize_value(event),
+                        evaluation_event_timestamp=datetime.utcfromtimestamp(event.timestamp),
+                        evaluation_event_storage_id=event_id,
+                        materialization_event_storage_id=(
+                            evaluation.target_materialization_data.storage_id
+                            if evaluation.target_materialization_data
+                            else None
+                        ),
+                    )
+                ).rowcount
 
         # 0 isn't normally expected, but occurs with the external instance of step launchers where
         # they don't have planned events.

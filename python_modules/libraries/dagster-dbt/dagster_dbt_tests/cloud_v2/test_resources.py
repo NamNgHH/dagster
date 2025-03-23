@@ -3,12 +3,14 @@ from typing import Optional
 import pytest
 import responses
 from dagster import Failure
-from dagster_dbt.cloud_v2.resources import DbtCloudWorkspace
+from dagster_dbt.cloud_v2.resources import DbtCloudCredentials, DbtCloudWorkspace
 from dagster_dbt.cloud_v2.types import DbtCloudJobRunStatusType
 
 from dagster_dbt_tests.cloud_v2.conftest import (
+    SAMPLE_CUSTOM_CREATE_JOB_RESPONSE,
     TEST_ACCOUNT_ID,
-    TEST_ADHOC_JOB_NAME,
+    TEST_CUSTOM_ADHOC_JOB_NAME,
+    TEST_DEFAULT_ADHOC_JOB_NAME,
     TEST_ENVIRONMENT_ID,
     TEST_JOB_ID,
     TEST_PROJECT_ID,
@@ -40,14 +42,18 @@ def test_basic_resource_request(
     # jobs data calls
     client.list_jobs(project_id=TEST_PROJECT_ID, environment_id=TEST_ENVIRONMENT_ID)
     client.create_job(
-        project_id=TEST_PROJECT_ID, environment_id=TEST_ENVIRONMENT_ID, job_name=TEST_ADHOC_JOB_NAME
+        project_id=TEST_PROJECT_ID,
+        environment_id=TEST_ENVIRONMENT_ID,
+        job_name=TEST_DEFAULT_ADHOC_JOB_NAME,
     )
     client.trigger_job_run(job_id=TEST_JOB_ID)
     client.get_run_details(run_id=TEST_RUN_ID)
     client.get_run_manifest_json(run_id=TEST_RUN_ID)
     client.get_run_results_json(run_id=TEST_RUN_ID)
+    client.get_project_details(project_id=TEST_PROJECT_ID)
+    client.get_environment_details(environment_id=TEST_ENVIRONMENT_ID)
 
-    assert len(all_api_mocks.calls) == 6
+    assert len(all_api_mocks.calls) == 8
     assert_rest_api_call(call=all_api_mocks.calls[0], endpoint="jobs", method="GET")
     assert_rest_api_call(call=all_api_mocks.calls[1], endpoint="jobs", method="POST")
     assert_rest_api_call(
@@ -64,6 +70,12 @@ def test_basic_resource_request(
         endpoint=f"runs/{TEST_RUN_ID}/artifacts/run_results.json",
         method="GET",
     )
+    assert_rest_api_call(
+        call=all_api_mocks.calls[6], endpoint=f"projects/{TEST_PROJECT_ID}", method="GET"
+    )
+    assert_rest_api_call(
+        call=all_api_mocks.calls[7], endpoint=f"environments/{TEST_ENVIRONMENT_ID}", method="GET"
+    )
 
 
 def test_get_or_create_dagster_adhoc_job(
@@ -73,12 +85,57 @@ def test_get_or_create_dagster_adhoc_job(
     # The expected job name is not in the initial list of jobs so a job is created
     job = workspace._get_or_create_dagster_adhoc_job()  # noqa
 
-    assert len(job_api_mocks.calls) == 2
-    assert_rest_api_call(call=job_api_mocks.calls[0], endpoint="jobs", method="GET")
-    assert_rest_api_call(call=job_api_mocks.calls[1], endpoint="jobs", method="POST")
+    assert len(job_api_mocks.calls) == 4
+    assert_rest_api_call(
+        call=job_api_mocks.calls[0], endpoint=f"projects/{TEST_PROJECT_ID}", method="GET"
+    )
+    assert_rest_api_call(
+        call=job_api_mocks.calls[1], endpoint=f"environments/{TEST_ENVIRONMENT_ID}", method="GET"
+    )
+    assert_rest_api_call(call=job_api_mocks.calls[2], endpoint="jobs", method="GET")
+    assert_rest_api_call(call=job_api_mocks.calls[3], endpoint="jobs", method="POST")
 
     assert job.id == TEST_JOB_ID
-    assert job.name == TEST_ADHOC_JOB_NAME
+    assert job.name == TEST_DEFAULT_ADHOC_JOB_NAME
+    assert job.account_id == TEST_ACCOUNT_ID
+    assert job.project_id == TEST_PROJECT_ID
+    assert job.environment_id == TEST_ENVIRONMENT_ID
+
+
+def test_custom_adhoc_job_name(
+    credentials: DbtCloudCredentials,
+    job_api_mocks: responses.RequestsMock,
+) -> None:
+    # Create a workspace with custom ad hoc job name
+    workspace = DbtCloudWorkspace(
+        credentials=credentials,
+        project_id=TEST_PROJECT_ID,
+        environment_id=TEST_ENVIRONMENT_ID,
+        adhoc_job_name="test_adhoc_job_name",
+    )
+
+    job_api_mocks.replace(
+        method_or_response=responses.POST,
+        url=f"{TEST_REST_API_BASE_URL}/jobs",
+        json=SAMPLE_CUSTOM_CREATE_JOB_RESPONSE,
+        status=201,
+    )
+
+    # The expected job name is not in the initial list of jobs so a job is created
+    job = workspace._get_or_create_dagster_adhoc_job()  # noqa
+
+    assert len(job_api_mocks.calls) == 4
+    assert_rest_api_call(
+        call=job_api_mocks.calls[0], endpoint=f"projects/{TEST_PROJECT_ID}", method="GET"
+    )
+    assert_rest_api_call(
+        call=job_api_mocks.calls[1], endpoint=f"environments/{TEST_ENVIRONMENT_ID}", method="GET"
+    )
+    assert_rest_api_call(call=job_api_mocks.calls[2], endpoint="jobs", method="GET")
+    assert_rest_api_call(call=job_api_mocks.calls[3], endpoint="jobs", method="POST")
+
+    assert job.id == TEST_JOB_ID
+    assert job.name == TEST_CUSTOM_ADHOC_JOB_NAME
     assert job.account_id == TEST_ACCOUNT_ID
     assert job.project_id == TEST_PROJECT_ID
     assert job.environment_id == TEST_ENVIRONMENT_ID

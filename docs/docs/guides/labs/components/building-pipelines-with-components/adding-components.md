@@ -3,11 +3,9 @@ title: "Adding components to your project"
 sidebar_position: 200
 ---
 
-:::info
+import Preview from '../../../../partials/\_Preview.md';
 
-This feature is still in development and might change in patch releases. It’s not production ready, and the documentation may also evolve. Stay tuned for updates.
-
-:::
+<Preview />
 
 To add components to your project, you can instantiate them from the command line, which will create a new directory inside your `components/` folder that contains a `component.yaml` file.
 
@@ -72,6 +70,6 @@ A common use case for templating is to avoid exposing environment variables (par
 component_type: my_snowflake_component
 
 attributes:
-    account: {{ env('SNOWFLAKE_ACCOUNT') }}
-    password: {{ env('SNOWFLAKE_PASSWORD') }}
+    account: "{{ env('SNOWFLAKE_ACCOUNT') }}"
+    password: "{{ env('SNOWFLAKE_PASSWORD') }}"
 ```

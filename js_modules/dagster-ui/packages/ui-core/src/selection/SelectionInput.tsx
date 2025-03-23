@@ -19,6 +19,7 @@ import {SelectionInputAutoCompleteResults} from './SelectionInputAutoCompleteRes
 import {SelectionAutoCompleteInputCSS} from './SelectionInputHighlighter';
 import {useSelectionInputLintingAndHighlighting} from './useSelectionInputLintingAndHighlighting';
 import {useTrackEvent} from '../app/analytics';
+import {upgradeSyntax} from '../asset-selection/syntaxUpgrader';
 import {useDangerousRenderEffect} from '../hooks/useDangerousRenderEffect';
 import {usePrevious} from '../hooks/usePrevious';
 import {useUpdatingRef} from '../hooks/useUpdatingRef';
@@ -34,10 +35,11 @@ type SelectionAutoCompleteInputProps = {
   placeholder: string;
   linter: (content: string) => SyntaxError[];
   value: string;
-  onChange: (value: string) => void;
   useAutoComplete: SelectionAutoCompleteProvider['useAutoComplete'];
   saveOnBlur?: boolean;
   onErrorStateChange?: (errors: SyntaxError[]) => void;
+  onChange: (value: string) => void;
+  wildcardAttributeName: string;
 };
 
 const emptyArray: SyntaxError[] = [];
@@ -50,6 +52,7 @@ export const SelectionAutoCompleteInput = ({
   useAutoComplete,
   saveOnBlur = false,
   onErrorStateChange,
+  wildcardAttributeName,
 }: SelectionAutoCompleteInputProps) => {
   const trackEvent = useTrackEvent();
 
@@ -70,10 +73,14 @@ export const SelectionAutoCompleteInput = ({
 
   const onSelectionChange = useCallback(
     (selection: string) => {
-      onChange(selection);
-      trackSelection(selection);
+      let nextValue = selection;
+      if (wildcardAttributeName) {
+        nextValue = upgradeSyntax(selection, wildcardAttributeName);
+      }
+      onChange(nextValue);
+      trackSelection(nextValue);
     },
-    [onChange, trackSelection],
+    [onChange, trackSelection, wildcardAttributeName],
   );
 
   const editorRef = useRef<HTMLDivElement>(null);
@@ -231,10 +238,10 @@ export const SelectionAutoCompleteInput = ({
     if (cmInstance.current && currentValue !== noNewLineValue) {
       const instance = cmInstance.current;
       const cursor = instance.getCursor();
-      instance.setValue(noNewLineValue);
-      instance.setCursor(cursor);
       setCursorPosition(cursor.ch);
       requestAnimationFrame(() => {
+        instance.setValue(noNewLineValue);
+        instance.setCursor(cursor);
         // Reset selected index on value change
         setSelectedIndex({current: -1});
       });
@@ -415,6 +422,7 @@ export const SelectionAutoCompleteInput = ({
       >
         <InputDiv
           $isCommitted={innerValue === value}
+          $hasErrors={errors.length > 0}
           style={{
             display: 'grid',
             gridTemplateColumns: 'auto minmax(0, 1fr) auto',
@@ -453,7 +461,7 @@ export const SelectionAutoCompleteInput = ({
   );
 };
 
-export const InputDiv = styled.div<{$isCommitted: boolean}>`
+export const InputDiv = styled.div<{$isCommitted: boolean; $hasErrors: boolean}>`
   ${SelectionAutoCompleteInputCSS}
   ${({$isCommitted}) =>
     $isCommitted
@@ -461,4 +469,10 @@ export const InputDiv = styled.div<{$isCommitted: boolean}>`
       : `
       background: ${Colors.backgroundLight()}; 
       `}
+  ${({$hasErrors}) =>
+    $hasErrors
+      ? `
+      border: 1px solid ${Colors.accentRed()};
+      `
+      : ''}
 `;

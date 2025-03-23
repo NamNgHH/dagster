@@ -15,13 +15,14 @@ import tomlkit
 from click.testing import Result
 from dagster import AssetKey, DagsterInstance
 from dagster._utils import alter_sys_path, pushd
-from dagster_components.core.component import Component, ComponentDeclNode, ComponentLoadContext
+from dagster_components.core.component import Component, ComponentLoadContext
+from dagster_components.core.defs_module import DefsModuleDecl
 from dagster_components.utils import ensure_loadable_path
 
 T = TypeVar("T")
 
 
-def script_load_context(decl_node: Optional[ComponentDeclNode] = None) -> ComponentLoadContext:
+def script_load_context(decl_node: Optional[DefsModuleDecl] = None) -> ComponentLoadContext:
     return ComponentLoadContext.for_test(decl_node=decl_node)
 
 
@@ -114,7 +115,11 @@ def create_project_from_components(
     injecting the provided local component defn into each component's __init__.py.
     """
     location_name = f"my_location_{str(random.random()).replace('.', '')}"
-    with tempfile.TemporaryDirectory() as tmpdir:
+
+    # Using mkdtemp instead of TemporaryDirectory so that the directory is accessible
+    # from launched procsses (such as duckdb)
+    tmpdir = tempfile.mkdtemp()
+    try:
         project_root = Path(tmpdir) / location_name
         project_root.mkdir()
 
@@ -144,6 +149,8 @@ def create_project_from_components(
 
             with ensure_loadable_path(project_root):
                 yield project_root, location_name
+    finally:
+        shutil.rmtree(tmpdir)
 
 
 # ########################

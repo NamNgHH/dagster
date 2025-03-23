@@ -23,7 +23,6 @@ from dagster import (
     multi_asset,
     observable_source_asset,
 )
-from dagster._check.functions import CheckError
 from dagster._core.definitions import AssetSelection
 from dagster._core.definitions.asset_check_spec import AssetCheckKey
 from dagster._core.definitions.asset_graph import AssetGraph
@@ -60,6 +59,7 @@ from dagster._core.remote_representation.handle import RepositoryHandle
 from dagster._core.selector.subset_selector import MAX_NUM
 from dagster._serdes import deserialize_value
 from dagster._serdes.serdes import _WHITELIST_MAP
+from dagster_shared.check import CheckError
 from typing_extensions import TypeAlias
 
 earth = SourceAsset(["celestial", "earth"], group_name="planets")
@@ -813,6 +813,12 @@ def test_from_string():
     ) | AssetSelection.assets("my_asset").upstream(depth=MAX_NUM, include_self=True)
     assert AssetSelection.from_string("tag:foo=bar") == AssetSelection.tag("foo", "bar")
     assert AssetSelection.from_string("tag:foo") == AssetSelection.tag("foo", "")
+    assert AssetSelection.from_string("key:prefix/thing") == KeyWildCardAssetSelection(
+        selected_key_wildcard="prefix/thing"
+    )
+    assert AssetSelection.from_string('key:"prefix/thing*"') == KeyWildCardAssetSelection(
+        selected_key_wildcard="prefix/thing*"
+    )
 
 
 def test_tag():
