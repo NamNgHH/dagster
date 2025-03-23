@@ -1,0 +1,7 @@
+[32m2025-03-20 23:13:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - b5c2af95-cc89-4110-95cf-2fac24a224b4 - 12472 - LOGS_CAPTURED - Started capturing logs in process (pid: 12472).
+[32m2025-03-20 23:13:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - b5c2af95-cc89-4110-95cf-2fac24a224b4 - 12472 - asset_static_metadata - STEP_START - Started execution of step "asset_static_metadata".
+[32m2025-03-20 23:13:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - b5c2af95-cc89-4110-95cf-2fac24a224b4 - 12472 - asset_static_metadata - STEP_OUTPUT - Yielded output "result" of type "Any". (Type check passed).
+[32m2025-03-20 23:13:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - b5c2af95-cc89-4110-95cf-2fac24a224b4 - asset_static_metadata - Writing file at: /workspaces/dagster/.tmp_dagster_home_15aumb5c/storage/asset_static_metadata using PickledObjectFilesystemIOManager...
+[32m2025-03-20 23:13:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - b5c2af95-cc89-4110-95cf-2fac24a224b4 - 12472 - asset_static_metadata - ASSET_MATERIALIZATION - Materialized value asset_static_metadata.
+[32m2025-03-20 23:13:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - b5c2af95-cc89-4110-95cf-2fac24a224b4 - 12472 - asset_static_metadata - HANDLED_OUTPUT - Handled output "result" using IO manager "io_manager"
+[32m2025-03-20 23:13:13 +0000[0m - dagster - [34mDEBUG[0m - __ASSET_JOB - b5c2af95-cc89-4110-95cf-2fac24a224b4 - 12472 - asset_static_metadata - STEP_SUCCESS - Finished execution of step "asset_static_metadata" in 79ms.
