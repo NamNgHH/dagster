@@ -9,7 +9,7 @@
     "post-build": "cd ../../python_modules/dagster-webserver/dagster_webserver && rm -rf webapp && mkdir -p webapp && cp -r ../../../js_modules/dagster-ui/packages/app-oss/build ./webapp/ && mkdir -p webapp/build/vendor && cp -r graphiql ./webapp/build/vendor && cp ../../../js_modules/dagster-ui/packages/app-oss/csp-header.txt ./webapp/build",
     "lint": "yarn workspace @dagster-io/app-oss lint && yarn workspace @dagster-io/ui-core lint && yarn workspace @dagster-io/ui-components lint",
     "remove-cloud-resolutions": "rm -rf ./packages/ui-core/src/tsconfig.json",
-    "start": "yarn remove-cloud-resolutions && yarn workspace @dagster-io/app-oss start",
+    "start": "yarn remove-cloud-resolutions && yarn workspace @dagster-io/app-oss start && react-scripts start",
     "ts": "yarn workspace @dagster-io/app-oss ts && yarn workspace @dagster-io/ui-components ts",
     "postinstall": "patch-package"
   },
@@ -29,5 +29,8 @@
   },
   "resolutions": {
     "graphql-config": "^5.0.3"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
   }
 }
