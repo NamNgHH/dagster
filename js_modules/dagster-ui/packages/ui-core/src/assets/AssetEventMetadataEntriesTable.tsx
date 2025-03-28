@@ -209,7 +209,8 @@ export const AssetEventMetadataEntriesTable = ({
               {filteredRows
                 .slice(0, displayedCount)
                 .map(({entry, timestamp, runId, icon, tooltip}) => (
-                  <tr key={`metadata-${timestamp}-${entry.label}`}>
+                  <tr key={`metadata-${timestamp}-${entry.label}`}
+                      className={'metadata-${timestamp}-${entry.label}'}>
                     <td>
                       <Mono>{entry.label}</Mono>
                     </td>
@@ -325,6 +326,11 @@ export const StyledTableWithHeader = styled.table`
       word-wrap: break-word;
       width: 25%;
     }
+    
+    &_uri-entry {
+      background-color: ${Colors.keylineDefault()};
+      font-weight: bold;
+    }
   }
 `;
 
@@ -349,7 +355,10 @@ function isEntryHidden(
       isCanonicalTableNameEntry(entry) ||
       isCanonicalUriEntry(entry))
   ) {
-    return true;
+    return false;
   }
-  return false;
+  if (entry.label === 'dagster/uri') {
+    return false;
+  }
+  return true;
 }
